@@ -38,6 +38,13 @@ fun CameraParameterBarVerticel(
             vertical = true
         )
         ParameterItem(
+            label = "F",
+            isSelected = selectedParameter == CameraParameter.VARIABLE_APERTURE,
+            isEnabled = state.supportsVariableAperture && !state.videoRecordingState.isRecording,
+            onClick = { onParameterClick(CameraParameter.VARIABLE_APERTURE) },
+            vertical = true
+        )
+        ParameterItem(
             label = "ISO",
             isSelected = selectedParameter == CameraParameter.ISO,
             isEnabled = true,

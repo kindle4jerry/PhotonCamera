@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hinnka.mycamera.R
+import com.hinnka.mycamera.camera.VariableApertureControl
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -38,6 +39,7 @@ import kotlin.math.roundToInt
 enum class CameraParameter {
     EXPOSURE_COMPENSATION,  // AE
     SHUTTER_SPEED,         // Tv
+    VARIABLE_APERTURE,     // F (physical variable aperture)
     ISO,                   // ISO
     FOCUS,                 // Focus
     WHITE_BALANCE          // AWB
@@ -347,6 +349,7 @@ private fun isSameParameterValue(
         CameraParameter.SHUTTER_SPEED -> 1000f
         CameraParameter.ISO -> 1f
         CameraParameter.WHITE_BALANCE -> 25f
+        CameraParameter.VARIABLE_APERTURE -> 0.01f
         else -> 1e-3f
     }
     return abs(value - currentValue) < tolerance
@@ -516,6 +519,11 @@ private fun getScaleValues(parameter: CameraParameter, minValue: Float, maxValue
                 .filter { it in minValue..maxValue }
         }
 
+        CameraParameter.VARIABLE_APERTURE -> {
+            // 物理可变光圈 9 档 F 值（官方相机 mVariableApertureArray）
+            VariableApertureControl.FNUMBERS.filter { it in minValue..maxValue }
+        }
+
         CameraParameter.WHITE_BALANCE -> {
             // Color temperature presets
             generateSequence(minValue) { it + 100f }
@@ -564,6 +572,10 @@ private fun formatParameterValue(parameter: CameraParameter, value: Float): Stri
             value.toInt().toString()
         }
 
+        CameraParameter.VARIABLE_APERTURE -> {
+            formatApertureFNumber(value)
+        }
+
         CameraParameter.WHITE_BALANCE -> {
             "${value.toInt()}K"
         }
@@ -577,5 +589,17 @@ private fun formatParameterValue(parameter: CameraParameter, value: Float): Stri
             }
         }
 
+    }
+}
+
+/**
+ * 光圈 F 值显示格式化：1.59 -> "1.59"，2.0 -> "2"
+ */
+internal fun formatApertureFNumber(value: Float): String {
+    val rounded = (value * 100).roundToInt() / 100f
+    return if (abs(rounded - rounded.roundToInt()) < 0.001f) {
+        rounded.roundToInt().toString()
+    } else {
+        rounded.toString()
     }
 }
