@@ -184,7 +184,8 @@ data class CameraInfo(
     val baseCameraId: String? = null, // 虚拟镜头对应的真实物理镜头 ID
     val iszZoomRatio: Float = 1f, // ISZ 虚拟倍率
     val rawBlackBorderCrop: RawBlackBorderCrop = RawBlackBorderCrop(), // RAW 原始分辨率黑边裁切像素
-    val minimumFocusDistance: Float = 0f // 最小对焦距离 (diopters, 0 = infinity only)
+    val minimumFocusDistance: Float = 0f, // 最小对焦距离 (diopters, 0 = infinity only)
+    val supportsVariableAperture: Boolean = false // 是否支持物理可变光圈（硬体光圈叶片）
 ) {
     fun getOpenCameraId(): String {
         if (!isVirtualIszLens) return logicalCameraId ?: cameraId
@@ -292,6 +293,10 @@ data class CameraState(
     // 测光模式
     val meteringMode: MeteringMode = MeteringMode.SYSTEM_DEFAULT,
 
+    // 物理可变光圈（硬体光圈叶片，非计算虚化；档位 1..9 对应 f/1.59..f/4.0）
+    val isVariableApertureAuto: Boolean = true,
+    val variableApertureLevel: Int = VariableApertureControl.DEFAULT_LEVEL,
+
     val isVirtualApertureEnabled: Boolean = false,
     val physicalAperture: Float = 2.0f, // 物理光圈值
     val virtualAperture: Float = 2.0f,  // 虚拟光圈值 (f-number)
@@ -393,6 +398,18 @@ data class CameraState(
      */
     val isAutoExposure: Boolean
         get() = isIsoAuto && isShutterSpeedAuto
+
+    /**
+     * 当前相机是否支持物理可变光圈（硬体光圈叶片）
+     */
+    val supportsVariableAperture: Boolean
+        get() = getCurrentCameraInfo()?.supportsVariableAperture == true
+
+    /**
+     * 当前手动光圈档位对应的 F 值
+     */
+    val variableApertureFNumber: Float
+        get() = VariableApertureControl.fNumberByLevel(variableApertureLevel)
 
     val isHLG: Boolean
         get() = currentDynamicRangeProfile == "HLG10"
