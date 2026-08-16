@@ -91,6 +91,7 @@ android {
         }
         create("default") {
             dimension = "channel"
+            applicationId = "com.hinnka.mycamera.nx733j"
         }
         create("samsung") {
             dimension = "channel"
