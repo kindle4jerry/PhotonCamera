@@ -10,6 +10,7 @@ import android.hardware.camera2.params.LensShadingMap
 import android.os.Build
 import android.os.SystemClock
 import com.hinnka.mycamera.camera.CaptureInfo
+import com.hinnka.mycamera.camera.VariableApertureControl
 import com.hinnka.mycamera.raw.DngProfileGainTableMap
 import com.hinnka.mycamera.raw.DngProfileToneCurve
 import com.hinnka.mycamera.raw.DngCameraRawProfileXmp
@@ -518,7 +519,9 @@ object SuperResolutionDngWriter {
             ?.takeIf { it > 0L }
             ?.let { it.toDouble() / 1_000_000_000.0 }
         val iso = captureMetadataResult.get(CaptureResult.SENSOR_SENSITIVITY)?.takeIf { it > 0 }
-        val aperture = captureMetadataResult.get(CaptureResult.LENS_APERTURE)?.takeIf { it > 0f }
+        val aperture = captureInfo.aperture?.takeIf { it > 0f }
+            ?: VariableApertureControl.resolveFNumberFromResult(captureMetadataResult)
+            ?: captureMetadataResult.get(CaptureResult.LENS_APERTURE)?.takeIf { it > 0f }
             ?: characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES)
                 ?.firstOrNull()
                 ?.takeIf { it > 0f }

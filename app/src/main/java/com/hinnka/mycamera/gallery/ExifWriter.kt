@@ -236,12 +236,14 @@ object ExifWriter {
 
     /**
      * 格式化为 EXIF 有理数格式（分子/分母）
+     *
+     * 分母精度取 100，保证两位小数的光圈/焦距（如 f/1.59、6.81mm）不丢精度。
      */
     private fun formatRational(value: Float): String {
         // 将浮点数转换为分数
-        // 例如：1.8 -> 18/10, 2.0 -> 2/1
-        val multiplier = 10
-        val numerator = (value * multiplier).toInt()
+        // 例如：1.8 -> 180/100 -> 9/5, 2.0 -> 200/100 -> 2/1, 1.59 -> 159/100
+        val multiplier = 100
+        val numerator = (value * multiplier).roundToInt()
 
         // 简化分数
         val gcd = gcd(numerator, multiplier)

@@ -7383,6 +7383,23 @@ class Camera2Controller(private val context: Context) {
 
         // 如果有实时的光圈/焦距，使用实时值
         result?.get(CaptureResult.LENS_APERTURE)?.let { aperture = it }
+
+        // 物理可变光圈：优先厂商结果键回读的实际光圈档位（自动/手动模式均上报），
+        // 回读不可用时手动模式回退到用户选定的档位 F 值。
+        // 否则 LENS_APERTURE 恒报最大光圈，EXIF 光圈值不会随档位变化。
+        val apertureState = _state.value
+        if (apertureState.supportsVariableAperture) {
+            val resolvedAperture = VariableApertureControl.resolveFNumberFromResult(result)
+                ?: if (!apertureState.isVariableApertureAuto) {
+                    apertureState.variableApertureFNumber.takeIf { it > 0f }
+                } else {
+                    null
+                }
+            if (resolvedAperture != null) {
+                aperture = resolvedAperture
+            }
+        }
+
         val resolvedFocalLength = resolveCaptureFocalLength(
             characteristics = characteristicsForMetadata,
             captureResultFocalLength = result?.get(CaptureResult.LENS_FOCAL_LENGTH),
