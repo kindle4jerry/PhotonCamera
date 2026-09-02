@@ -30,6 +30,7 @@
     <!-- Exposure Controls -->
     <string name="camera_parameter_exposure" translatable="false">AE</string>
     <string name="camera_parameter_shutter" translatable="false">Tv</string>
+    <string name="camera_parameter_aperture" translatable="false">F</string>
     <string name="camera_parameter_iso" translatable="false">ISO</string>
     <string name="camera_parameter_focus" translatable="false">AF</string>
     <string name="camera_parameter_white_balance" translatable="false">AWB</string>

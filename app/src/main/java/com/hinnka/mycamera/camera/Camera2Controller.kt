@@ -891,7 +891,14 @@ class Camera2Controller(private val context: Context) {
                 } else {
                     canAdjustManualWhiteBalance(whiteBalanceResult)
                 }
-            val aperture = result.get(CaptureResult.LENS_APERTURE)
+            val variableApertureFNumber = if (_state.value.supportsVariableAperture) {
+                VariableApertureControl.readLevelFromResult(result)
+                    ?.let { VariableApertureControl.fNumberByLevel(it) }
+                    ?.takeIf { it > 0f }
+            } else {
+                null
+            }
+            val aperture = variableApertureFNumber ?: result.get(CaptureResult.LENS_APERTURE)
             val focusDistance = result.get(CaptureResult.LENS_FOCUS_DISTANCE) ?: 0f
 
             // 关键修复：只在自动曝光模式下更新 ISO 和快门速度
@@ -3529,6 +3536,10 @@ class Camera2Controller(private val context: Context) {
         }
         applyVendorCaptureSettings(builder, isCapture)
         applyCustomVendorCaptureRequestKeys(builder, isCapture)
+
+        // 11. 物理可变光圈（硬体光圈叶片）
+        applyVariableApertureSettings(builder, isCapture)
+
         if (isCapture) {
             PLog.i(
                 TAG,
@@ -3668,6 +3679,37 @@ class Camera2Controller(private val context: Context) {
                 availableCaptureRequestKeyNames = it
             }
         return keyNames.contains(requestKeyName)
+    }
+
+    /**
+     * 应用物理可变光圈请求键（移植自官方相机 ParametersSetter.setVariAperParameters）。
+     *
+     * 自动模式不下发任何键，HAL 恢复自动光圈控制；手动模式按 SDK 路径下发
+     * ZTE（com.zte.chi.aperture.level，Int 1..9）或 QCOM（aperture_mode + aperture_fnumber）键。
+     */
+    private fun applyVariableApertureSettings(builder: CaptureRequest.Builder, isCapture: Boolean) {
+        val state = _state.value
+        if (!state.supportsVariableAperture) return
+
+        val target = if (isCapture) "capture" else "preview"
+        if (state.isVariableApertureAuto) {
+            PLog.d(TAG, "Variable aperture $target: auto (keys unset)")
+            return
+        }
+
+        val level = state.variableApertureLevel
+        val fNumber = VariableApertureControl.fNumberByLevel(level)
+        if (fNumber < 0f) {
+            PLog.w(TAG, "Variable aperture $target: invalid level $level, keys unset (auto)")
+            return
+        }
+
+        try {
+            VariableApertureControl.applyManual(builder, level)
+            PLog.d(TAG, "Variable aperture $target: level=$level f/$fNumber")
+        } catch (e: Exception) {
+            PLog.w(TAG, "Failed to apply variable aperture $target: level=$level", e)
+        }
     }
 
     private fun loadAvailableCaptureRequestKeyNames(characteristics: CameraCharacteristics?): Set<String> {
@@ -5278,6 +5320,63 @@ class Camera2Controller(private val context: Context) {
             applyExposureSettings(this, _state.value, false)
             updatePreview()
         }
+    }
+
+    /**
+     * 设置物理可变光圈档位（1..9，对应 f/1.59..f/4.0），同时切换到手动光圈。
+     *
+     * 移植自官方相机 Pro 模式可变光圈：档位经 ZTE/QCOM 厂商键下发到 HAL。
+     */
+    fun setVariableApertureLevel(level: Int) {
+        val currentState = _state.value
+        if (!currentState.supportsVariableAperture) {
+            PLog.w(TAG, "Variable aperture level ignored: unsupported on ${currentState.currentCameraId}")
+            return
+        }
+        if (currentState.videoRecordingState.isRecording) {
+            PLog.w(TAG, "Variable aperture level ignored: video recording in progress")
+            return
+        }
+
+        val clampedLevel = level.coerceIn(VariableApertureControl.LEVEL_MIN, VariableApertureControl.LEVEL_MAX)
+        if (currentState.variableApertureLevel == clampedLevel && !currentState.isVariableApertureAuto) {
+            return
+        }
+
+        _state.value = currentState.copy(
+            variableApertureLevel = clampedLevel,
+            isVariableApertureAuto = false
+        )
+
+        previewRequestBuilder?.apply {
+            applyVariableApertureSettings(this, isCapture = false)
+            updatePreview()
+        }
+        PLog.d(
+            TAG,
+            "Variable aperture level set: $clampedLevel (f/${VariableApertureControl.fNumberByLevel(clampedLevel)})"
+        )
+    }
+
+    /**
+     * 设置物理可变光圈自动模式。
+     * 自动模式不下发厂商键，HAL 恢复自动光圈控制（与官方相机 setVariAperParameters(true, -1) 一致）。
+     */
+    fun setVariableApertureAuto(enabled: Boolean) {
+        val currentState = _state.value
+        if (currentState.isVariableApertureAuto == enabled) return
+        if (currentState.videoRecordingState.isRecording) {
+            PLog.w(TAG, "Variable aperture auto change ignored: video recording in progress")
+            return
+        }
+
+        _state.value = currentState.copy(isVariableApertureAuto = enabled)
+
+        previewRequestBuilder?.apply {
+            applyVariableApertureSettings(this, isCapture = false)
+            updatePreview()
+        }
+        PLog.d(TAG, "Variable aperture auto: $enabled")
     }
 
     /**
