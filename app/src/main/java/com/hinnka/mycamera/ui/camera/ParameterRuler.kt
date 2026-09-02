@@ -1,5 +1,6 @@
 package com.hinnka.mycamera.ui.camera
 
+import com.hinnka.mycamera.camera.VariableApertureControl
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -42,6 +43,7 @@ enum class CameraParameter {
     EXPOSURE_COMPENSATION,
     SHUTTER_SPEED,
     APERTURE,
+    VARIABLE_APERTURE,
     ISO,
     FOCUS,
     WHITE_BALANCE
@@ -297,6 +299,7 @@ private fun formatParameterValue(parameter: CameraParameter, value: Float): Stri
     }
     CameraParameter.SHUTTER_SPEED -> formatShutterSpeedValue(value.toLong())
     CameraParameter.APERTURE -> if (value > 0f) formatPhysicalAperture(value) else stringResource(R.string.unknown)
+    CameraParameter.VARIABLE_APERTURE -> formatApertureFNumber(value)
     CameraParameter.ISO -> value.roundToInt().toString()
     CameraParameter.WHITE_BALANCE -> "${value.roundToInt()}K"
     CameraParameter.FOCUS -> formatFocusDistance(value)
@@ -411,6 +414,11 @@ private fun getScaleValues(parameter: CameraParameter, minValue: Float, maxValue
                 .toList()
         }
 
+        CameraParameter.VARIABLE_APERTURE -> {
+            // 物理可变光圈 9 档 F 值（官方相机 mVariableApertureArray）
+            VariableApertureControl.FNUMBERS
+        }
+
         CameraParameter.FOCUS -> {
             val steps = 20
             val list = mutableListOf<Float>()
@@ -421,4 +429,16 @@ private fun getScaleValues(parameter: CameraParameter, minValue: Float, maxValue
         }
 
     }.plus(listOf(minValue, maxValue)).filter { it in minValue..maxValue }.distinct().sorted()
+}
+
+/**
+ * 光圈 F 值显示格式化：1.59 -> "1.59"，2.0 -> "2"
+ */
+internal fun formatApertureFNumber(value: Float): String {
+    val rounded = (value * 100).roundToInt() / 100f
+    return if (abs(rounded - rounded.roundToInt()) < 0.001f) {
+        rounded.roundToInt().toString()
+    } else {
+        rounded.toString()
+    }
 }

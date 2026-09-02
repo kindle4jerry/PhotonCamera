@@ -1540,7 +1540,8 @@ class CameraDiscovery(private val context: Context) {
             supportsManualProcessing = checkManualProcessingSupport(characteristics),
             supportsRaw = CameraUtils.getRawCaptureOutput(characteristics) != null,
             isCustomLensId = isCustomLensId,
-            minimumFocusDistance = characteristics.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE) ?: 0f
+            minimumFocusDistance = characteristics.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE) ?: 0f,
+            supportsVariableAperture = VariableApertureControl.isSupported(characteristics)
         )
     }
 
