@@ -1,5 +1,6 @@
 package com.hinnka.mycamera.ui.camera
 
+import com.hinnka.mycamera.camera.VariableApertureControl
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -194,6 +195,8 @@ private fun CameraParameter.defaultResetValue(): Float {
     return when (this) {
         CameraParameter.EXPOSURE_COMPENSATION -> 0f
         CameraParameter.SHUTTER_SPEED -> DefaultShutterSpeedNs
+        CameraParameter.VARIABLE_APERTURE ->
+            VariableApertureControl.fNumberByLevel(VariableApertureControl.DEFAULT_LEVEL)
         CameraParameter.ISO -> DefaultIso
         CameraParameter.FOCUS -> DefaultFocusDistance
         CameraParameter.WHITE_BALANCE -> DefaultAwbTemperature
@@ -915,6 +918,12 @@ fun CameraScreen(
                 currentValue = when (selectedParameter) {
                     CameraParameter.EXPOSURE_COMPENSATION -> state.exposureCompensation * state.getExposureCompensationStep()
                     CameraParameter.SHUTTER_SPEED -> state.shutterSpeed.toFloat()
+                    CameraParameter.VARIABLE_APERTURE ->
+                        if (state.isVariableApertureAuto) {
+                            state.physicalAperture.takeIf { it > 0f } ?: state.variableApertureFNumber
+                        } else {
+                            state.variableApertureFNumber
+                        }
                     CameraParameter.ISO -> state.iso.toFloat()
                     CameraParameter.FOCUS -> state.focusDistance
                     CameraParameter.WHITE_BALANCE -> whiteBalanceCurrentValue
@@ -922,6 +931,7 @@ fun CameraScreen(
                 minValue = when (selectedParameter) {
                     CameraParameter.EXPOSURE_COMPENSATION -> state.getExposureCompensationRange().lower * state.getExposureCompensationStep()
                     CameraParameter.SHUTTER_SPEED -> state.getShutterSpeedRange().lower.toFloat()
+                    CameraParameter.VARIABLE_APERTURE -> VariableApertureControl.FNUMBERS.first()
                     CameraParameter.ISO -> state.getIsoRange().lower.toFloat()
                     CameraParameter.FOCUS -> 0f
                     CameraParameter.WHITE_BALANCE -> state.awbTemperatureMin.toFloat()
@@ -929,6 +939,7 @@ fun CameraScreen(
                 maxValue = when (selectedParameter) {
                     CameraParameter.EXPOSURE_COMPENSATION -> state.getExposureCompensationRange().upper * state.getExposureCompensationStep()
                     CameraParameter.SHUTTER_SPEED -> maxOf(state.getShutterSpeedRange().upper, 1_000_000_000L * 15).toFloat()
+                    CameraParameter.VARIABLE_APERTURE -> VariableApertureControl.FNUMBERS.last()
                     CameraParameter.ISO -> maxOf(state.getIsoRange().upper, 3200).toFloat()
                     CameraParameter.FOCUS -> state.minimumFocusDistance
                     CameraParameter.WHITE_BALANCE -> state.awbTemperatureMax.toFloat()
@@ -936,6 +947,8 @@ fun CameraScreen(
                 isAdjustable = when (selectedParameter) {
                     CameraParameter.EXPOSURE_COMPENSATION -> state.isAutoExposure
                     CameraParameter.SHUTTER_SPEED -> !state.isShutterSpeedAuto
+                    CameraParameter.VARIABLE_APERTURE ->
+                        !state.isVariableApertureAuto && !state.videoRecordingState.isRecording
                     CameraParameter.ISO -> !state.isIsoAuto
                     CameraParameter.FOCUS -> !state.isAutoFocus
                     CameraParameter.WHITE_BALANCE ->
@@ -943,7 +956,7 @@ fun CameraScreen(
                                 state.awbMode != android.hardware.camera2.CameraMetadata.CONTROL_AWB_MODE_AUTO
                 },
                 showAutoButton = when (selectedParameter) {
-                    CameraParameter.SHUTTER_SPEED, CameraParameter.ISO, CameraParameter.WHITE_BALANCE, CameraParameter.FOCUS -> true
+                    CameraParameter.SHUTTER_SPEED, CameraParameter.VARIABLE_APERTURE, CameraParameter.ISO, CameraParameter.WHITE_BALANCE, CameraParameter.FOCUS -> true
                     else -> false
                 },
                 isAutoModeToggleEnabled = when (selectedParameter) {
@@ -961,6 +974,10 @@ fun CameraScreen(
                     when (selectedParameter) {
                         CameraParameter.EXPOSURE_COMPENSATION -> viewModel.setExposureCompensation((value / state.getExposureCompensationStep()).roundToInt())
                         CameraParameter.SHUTTER_SPEED -> viewModel.setShutterSpeed(value.toLong())
+                        CameraParameter.VARIABLE_APERTURE ->
+                            VariableApertureControl.levelByFNumber(value)
+                                .takeIf { it > 0 }
+                                ?.let(viewModel::setVariableApertureLevel)
                         CameraParameter.ISO -> viewModel.setIso(value.toInt())
                         CameraParameter.FOCUS -> viewModel.setFocusDistance(value)
                         CameraParameter.WHITE_BALANCE -> viewModel.setAwbTemperature(value.toInt())
@@ -969,6 +986,7 @@ fun CameraScreen(
                 onAutoModeToggle = {
                     when (selectedParameter) {
                         CameraParameter.SHUTTER_SPEED -> viewModel.setShutterSpeedAuto(!state.isShutterSpeedAuto)
+                        CameraParameter.VARIABLE_APERTURE -> viewModel.setVariableApertureAuto(!state.isVariableApertureAuto)
                         CameraParameter.ISO -> viewModel.setIsoAuto(!state.isIsoAuto)
                         CameraParameter.WHITE_BALANCE -> {
                             if (state.canAdjustWhiteBalance) {

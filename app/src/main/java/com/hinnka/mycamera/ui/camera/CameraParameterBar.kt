@@ -22,6 +22,9 @@ import com.hinnka.mycamera.ui.components.PhysicalButton
 
 internal val CameraParameterValuesOverlayHeight = 24.dp
 
+private val CameraParameterItemMaxWidth = 56.dp
+private val CameraParameterItemMinGap = 4.dp
+
 @Composable
 fun CameraParameterBar(
     state: CameraState,
@@ -29,43 +32,65 @@ fun CameraParameterBar(
     onParameterClick: (CameraParameter) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .padding(start = 16.dp, top = 12.dp, end = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        contentAlignment = Alignment.Center
     ) {
-        ParameterItem(
-            label = "AE",
-            isSelected = selectedParameter == CameraParameter.EXPOSURE_COMPENSATION,
-            isEnabled = state.isAutoExposure, // Only available in auto exposure mode
-            onClick = { onParameterClick(CameraParameter.EXPOSURE_COMPENSATION) }
+        // 自适应宽度：6 个按钮保证最小间距，窄屏自动收窄，宽屏不超过 56dp
+        val itemWidth = minOf(
+            CameraParameterItemMaxWidth,
+            (maxWidth - CameraParameterItemMinGap * 5) / 6
         )
-        ParameterItem(
-            label = "Tv",
-            isSelected = selectedParameter == CameraParameter.SHUTTER_SPEED,
-            isEnabled = true,
-            onClick = { onParameterClick(CameraParameter.SHUTTER_SPEED) }
-        )
-        ParameterItem(
-            label = "ISO",
-            isSelected = selectedParameter == CameraParameter.ISO,
-            isEnabled = true,
-            onClick = { onParameterClick(CameraParameter.ISO) }
-        )
-        ParameterItem(
-            label = "AF",
-            isSelected = selectedParameter == CameraParameter.FOCUS,
-            isEnabled = true,
-            onClick = { onParameterClick(CameraParameter.FOCUS) }
-        )
-        ParameterItem(
-            label = "AWB",
-            isSelected = selectedParameter == CameraParameter.WHITE_BALANCE,
-            isEnabled = state.canAdjustWhiteBalance || state.actualAwbTemperature != null,
-            onClick = { onParameterClick(CameraParameter.WHITE_BALANCE) }
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ParameterItem(
+                label = "AE",
+                isSelected = selectedParameter == CameraParameter.EXPOSURE_COMPENSATION,
+                isEnabled = state.isAutoExposure, // Only available in auto exposure mode
+                onClick = { onParameterClick(CameraParameter.EXPOSURE_COMPENSATION) },
+                modifier = Modifier.width(itemWidth)
+            )
+            ParameterItem(
+                label = "Tv",
+                isSelected = selectedParameter == CameraParameter.SHUTTER_SPEED,
+                isEnabled = true,
+                onClick = { onParameterClick(CameraParameter.SHUTTER_SPEED) },
+                modifier = Modifier.width(itemWidth)
+            )
+            ParameterItem(
+                label = "F",
+                isSelected = selectedParameter == CameraParameter.VARIABLE_APERTURE,
+                isEnabled = state.supportsVariableAperture && !state.videoRecordingState.isRecording,
+                onClick = { onParameterClick(CameraParameter.VARIABLE_APERTURE) },
+                modifier = Modifier.width(itemWidth)
+            )
+            ParameterItem(
+                label = "ISO",
+                isSelected = selectedParameter == CameraParameter.ISO,
+                isEnabled = true,
+                onClick = { onParameterClick(CameraParameter.ISO) },
+                modifier = Modifier.width(itemWidth)
+            )
+            ParameterItem(
+                label = "AF",
+                isSelected = selectedParameter == CameraParameter.FOCUS,
+                isEnabled = true,
+                onClick = { onParameterClick(CameraParameter.FOCUS) },
+                modifier = Modifier.width(itemWidth)
+            )
+            ParameterItem(
+                label = "AWB",
+                isSelected = selectedParameter == CameraParameter.WHITE_BALANCE,
+                isEnabled = state.canAdjustWhiteBalance || state.actualAwbTemperature != null,
+                onClick = { onParameterClick(CameraParameter.WHITE_BALANCE) },
+                modifier = Modifier.width(itemWidth)
+            )
+        }
     }
 }
 
@@ -79,8 +104,9 @@ fun ParameterItem(
     modifier: Modifier = Modifier
 ) {
     PhysicalButton(
-        modifier = modifier
+        modifier = Modifier
             .width(if (vertical) 32.dp else 56.dp)
+            .then(modifier)
             .height(if (vertical) 56.dp else 32.dp),
         onClick = onClick,
         enabled = isEnabled,
@@ -118,7 +144,7 @@ fun CameraParameterValuesOverlay(
             .padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center
     ) {
-        val showLabels = maxWidth >= 300.dp
+        val showLabels = maxWidth >= 340.dp
         val valueFontSize = if (showLabels) 10.sp else 9.sp
         val values = listOf(
             CameraParameterValue(
@@ -132,6 +158,10 @@ fun CameraParameterValuesOverlay(
                 label = "Tv",
                 value = formatShutterSpeedValue(state.shutterSpeed),
                 valueColor = if (state.isPreviewExposureLimited()) Color.Red else Color.White
+            ),
+            CameraParameterValue(
+                label = "F",
+                value = formatVariableApertureValue(state)
             ),
             CameraParameterValue(label = "ISO", value = state.iso.toString()),
             CameraParameterValue(label = "AF", value = formatFocusDistance(state.focusDistance)),
@@ -198,5 +228,16 @@ internal fun formatWhiteBalanceValue(state: CameraState): String {
         CameraMetadata.CONTROL_AWB_MODE_OFF -> "${state.awbTemperature}K"
         CameraMetadata.CONTROL_AWB_MODE_AUTO -> state.actualAwbTemperature?.let { "${it}K" } ?: "AUTO"
         else -> state.actualAwbTemperature?.let { "${it}K" } ?: "UNK"
+    }
+}
+
+internal fun formatVariableApertureValue(state: CameraState): String {
+    return if (state.isVariableApertureAuto) {
+        state.physicalAperture
+            .takeIf { it > 0f }
+            ?.let { formatApertureFNumber(it) }
+            ?: "AUTO"
+    } else {
+        formatApertureFNumber(state.variableApertureFNumber)
     }
 }
