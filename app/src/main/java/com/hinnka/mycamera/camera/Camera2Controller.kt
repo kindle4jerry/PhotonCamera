@@ -8920,7 +8920,20 @@ class Camera2Controller(private val context: Context) {
         val whiteBalance = if (awbModeForExif == CameraMetadata.CONTROL_AWB_MODE_AUTO) 0 else 1
         val flashState = result?.get(CaptureResult.FLASH_STATE) ?: captureState.flashMode
 
-        val aperture = result?.readPhysicalAperture() ?: when {
+        // 物理可变光圈：优先厂商结果键回读的实际光圈档位（自动/手动模式均上报），
+        // 回读不可用时手动模式回退到用户选定的档位 F 值。
+        // 否则 LENS_APERTURE 恒报最大光圈，EXIF 光圈值不会随档位变化。
+        val variableApertureResolved = if (captureState.supportsVariableAperture) {
+            VariableApertureControl.resolveFNumberFromResult(result)
+                ?: if (!captureState.isVariableApertureAuto) {
+                    captureState.variableApertureFNumber.takeIf { it > 0f }
+                } else {
+                    null
+                }
+        } else {
+            null
+        }
+        val aperture = variableApertureResolved ?: result?.readPhysicalAperture() ?: when {
             effectiveCharacteristics == null -> captureState.physicalAperture ?: fixedAperture
             captureState.isApertureAdjustable -> null
             else -> fixedAperture

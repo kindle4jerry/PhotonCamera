@@ -1,5 +1,6 @@
 package com.hinnka.mycamera.utils
 
+import com.hinnka.mycamera.camera.VariableApertureControl
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.hardware.camera2.CameraCharacteristics
@@ -541,12 +542,15 @@ object SuperResolutionDngWriter {
             ?.takeIf { it > 0L }
             ?.let { it.toDouble() / 1_000_000_000.0 }
         val iso = captureMetadataResult.get(CaptureResult.SENSOR_SENSITIVITY)?.takeIf { it > 0 }
-        val aperture = resolveRawApertureFNumber(
-            frameAperture = captureMetadataResult.get(CaptureResult.LENS_APERTURE),
-            availableApertures = characteristics.get(
-                CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES,
-            ),
-        )
+        // 物理可变光圈：优先已解析的 CaptureInfo 光圈值 → 厂商结果键回读 → 通用解析兜底（返回非空）。
+        val aperture = captureInfo.aperture?.takeIf { it > 0f }
+            ?: VariableApertureControl.resolveFNumberFromResult(captureMetadataResult)
+            ?: resolveRawApertureFNumber(
+                frameAperture = captureMetadataResult.get(CaptureResult.LENS_APERTURE),
+                availableApertures = characteristics.get(
+                    CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES,
+                ),
+            )
         val physicalFocalLength = captureMetadataResult.get(CaptureResult.LENS_FOCAL_LENGTH)
             ?.takeIf { it > 0f }
         val focalLength = effectiveFocalLengthMm?.takeIf { it > 0f } ?: physicalFocalLength

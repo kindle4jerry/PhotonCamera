@@ -139,4 +139,16 @@ object VariableApertureControl {
             null
         }
     }
+
+    /**
+     * 从拍摄结果解析实际光圈 F 值（用于 EXIF/DNG 元数据）：
+     * 优先厂商回读档位（光圈叶片的实际位置，自动/手动模式均会上报），
+     * 回读不可用时返回 null，由调用方使用 LENS_APERTURE / AVAILABLE_APERTURES 兜底。
+     */
+    fun resolveFNumberFromResult(result: CaptureResult?): Float? {
+        return result
+            ?.let { readLevelFromResult(it) }
+            ?.let { fNumberByLevel(it) }
+            ?.takeIf { it > 0f }
+    }
 }
