@@ -1,5 +1,6 @@
 package com.hinnka.mycamera.raw
 
+import com.hinnka.mycamera.camera.VariableApertureControl
 import android.R
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CaptureResult
@@ -377,7 +378,11 @@ data class RawMetadata(
                 CameraCharacteristics.SENSOR_MAX_ANALOG_SENSITIVITY,
             ) ?: 0
             val shutterSpeed = captureResult.get(CaptureResult.SENSOR_EXPOSURE_TIME) ?: 0L
-            val aperture = captureResult.get(CaptureResult.LENS_APERTURE) ?: 0f
+            // 物理可变光圈：优先厂商结果键回读实际光圈档位，
+            // 避免 LENS_APERTURE 恒报最大光圈导致 DNG 光圈值不随档位变化。
+            val aperture = VariableApertureControl.resolveFNumberFromResult(captureResult)
+                ?: captureResult.get(CaptureResult.LENS_APERTURE)
+                ?: 0f
 
             return RawMetadata(
                 width = width,
