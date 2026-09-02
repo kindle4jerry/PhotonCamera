@@ -3869,6 +3869,20 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
+     * 设置物理可变光圈档位（1..9），并切换到手动光圈
+     */
+    fun setVariableApertureLevel(level: Int) {
+        cameraController.setVariableApertureLevel(level)
+    }
+
+    /**
+     * 设置物理可变光圈自动模式
+     */
+    fun setVariableApertureAuto(enabled: Boolean) {
+        cameraController.setVariableApertureAuto(enabled)
+    }
+
+    /**
      * 设置计算光圈 (等效虚化)
      */
     fun setAperture(value: Float) {

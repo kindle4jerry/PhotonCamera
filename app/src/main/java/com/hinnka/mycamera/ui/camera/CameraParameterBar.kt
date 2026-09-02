@@ -84,6 +84,12 @@ internal fun cameraParameterItems(state: CameraState): List<CameraParameterItem>
             isWarning = showValues && state.isPreviewExposureLimited()
         ),
         CameraParameterItem(
+            CameraParameter.VARIABLE_APERTURE,
+            stringResource(R.string.camera_parameter_aperture),
+            if (showValues) formatVariableApertureValue(state) else null,
+            isEnabled = state.supportsVariableAperture && !state.videoRecordingState.isRecording
+        ),
+        CameraParameterItem(
             CameraParameter.ISO,
             stringResource(R.string.camera_parameter_iso),
             if (showValues) state.iso.toString() else null
@@ -263,5 +269,18 @@ private fun formatWhiteBalanceValue(state: CameraState): String {
         CameraMetadata.CONTROL_AWB_MODE_OFF -> "${state.awbTemperature}K"
         CameraMetadata.CONTROL_AWB_MODE_AUTO -> measuredValue ?: stringResource(R.string.camera_focus_auto)
         else -> measuredValue ?: stringResource(R.string.unknown)
+    }
+}
+
+/**
+ * 物理可变光圈显示值：自动模式下显示 HAL 回读的实际光圈，回读不可用时显示 AUTO。
+ */
+@Composable
+private fun formatVariableApertureValue(state: CameraState): String {
+    return if (state.isVariableApertureAuto) {
+        state.physicalAperture.takeIf { it > 0f }?.let { formatApertureFNumber(it) }
+            ?: stringResource(R.string.camera_focus_auto)
+    } else {
+        formatApertureFNumber(state.variableApertureFNumber)
     }
 }
